@@ -17,12 +17,55 @@ namespace WindowsClient
             public int ConsoleLocTop { get; set; }
         }
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            Downloader.AuthBrowserAction = s => Process.Start(s);
-            Downloader.AuthPocket().Wait();
+            // Prefer test token (simplest auth for personal use)
+            string testToken = Environment.GetEnvironmentVariable("RAINDROP_TEST_TOKEN");
 
-            List<Item> allArticles = Downloader.GetPocketItems().Result;
+            if (!string.IsNullOrEmpty(testToken))
+            {
+                Downloader.ClientId = "unused";
+                Downloader.ClientSecret = "unused";
+                await Downloader.AuthRaindrop(testToken);
+            }
+            else
+            {
+                // Fall back to full OAuth
+                Downloader.ClientId = Environment.GetEnvironmentVariable("RAINDROP_CLIENT_ID");
+                Downloader.ClientSecret = Environment.GetEnvironmentVariable("RAINDROP_CLIENT_SECRET");
+
+                if (string.IsNullOrEmpty(Downloader.ClientId) || string.IsNullOrEmpty(Downloader.ClientSecret))
+                {
+                    Console.WriteLine("Please set RAINDROP_TEST_TOKEN (or RAINDROP_CLIENT_ID + RAINDROP_CLIENT_SECRET).");
+                    Console.WriteLine("Get a test token from https://app.raindrop.io/settings/integrations");
+                    return;
+                }
+
+                string savedToken = Environment.GetEnvironmentVariable("RAINDROP_ACCESS_TOKEN");
+                string savedRefresh = Environment.GetEnvironmentVariable("RAINDROP_REFRESH_TOKEN");
+
+                Downloader.AuthBrowserAction = s => Process.Start(new ProcessStartInfo(s) { UseShellExecute = true });
+                Downloader.SaveTokensAction = (access, refresh, expiry) =>
+                {
+                    Console.WriteLine($"\nSave these tokens for future use:");
+                    Console.WriteLine($"  RAINDROP_ACCESS_TOKEN={access}");
+                    Console.WriteLine($"  RAINDROP_REFRESH_TOKEN={refresh}");
+                };
+
+                if (!string.IsNullOrEmpty(savedToken))
+                {
+                    await Downloader.AuthRaindrop(savedToken, savedRefresh);
+                }
+                else
+                {
+                    await Downloader.AuthRaindrop();
+                    Console.WriteLine("Enter the authorization code from the redirect URL:");
+                    string authCode = Console.ReadLine();
+                    await Downloader.CompleteAuth(authCode);
+                }
+            }
+
+            List<Item> allArticles = await Downloader.GetBookmarks();
             List<Item> selectedArticles = GetSelectionFromList(allArticles);
 
             Console.WriteLine(); //Line separator
@@ -37,7 +80,7 @@ namespace WindowsClient
             Console.CursorVisible = false;
             List<Task> tasksForDownloads = StartTasks(consoleItems);
 
-            Task.WaitAll(tasksForDownloads.ToArray());
+            await Task.WhenAll(tasksForDownloads.ToArray());
             Console.CursorVisible = true;
             Console.SetCursorPosition(finalCursorLeft, finalCursorTop);
             Console.WriteLine($"All videos downloaded to {Downloader.DownloadDirectory}");
@@ -48,7 +91,7 @@ namespace WindowsClient
         public static string GetTitleForDisplay(Item item, bool withQuotes = true)
         {
             string titleToDisplay = item.Title;
-            if (titleToDisplay.Length > 50) //Truncate the title to fit nicely in the console
+            if (titleToDisplay.Length > 50)
                 titleToDisplay = titleToDisplay.Substring(0, 50) + "...";
 
             if (withQuotes)
@@ -62,10 +105,10 @@ namespace WindowsClient
             foreach (Item item in listToDisplay)
                 Console.WriteLine("(" + listToDisplay.IndexOf(item) + ") " + GetTitleForDisplay(item, false));
 
-            Console.WriteLine(); //Line separator
+            Console.WriteLine();
             Console.WriteLine("Which # would you like? (you can choose multiple items with commas or ranges eg \"1-3,7,9\")");
             string input = Console.ReadLine();
-            input = Regex.Replace(input, @"[^\d-,]", ""); //Remove any characters that are not numbers, commas, or hyphens
+            input = Regex.Replace(input, @"[^\d-,]", "");
 
             List<Item> result = new List<Item>();
             foreach (string indexStr in input.Split(','))
@@ -127,19 +170,19 @@ namespace WindowsClient
             List<Task> progressTasks = new List<Task>();
             foreach (ConsoleItem item in itemsToDownload)
             {
-                Task itemTask = DownloadPocketItem(item);
+                Task itemTask = DownloadItem(item);
                 progressTasks.Add(itemTask);
             }
 
             return progressTasks;
         }
 
-        public static async Task DownloadPocketItem(ConsoleItem itemToDownload)
+        public static async Task DownloadItem(ConsoleItem itemToDownload)
         {
             Progress<double> progress = new Progress<double>();
             progress.ProgressChanged += (s, e) => { UpdatePercentange(itemToDownload, Math.Round(e * 100, 1)); };
 
-            await Downloader.DownloadPocketItem(itemToDownload.Item, progress);
+            await Downloader.DownloadItem(itemToDownload.Item, progress);
         }
 
         private static object _sync = new object();
@@ -149,19 +192,6 @@ namespace WindowsClient
             {
                 Console.SetCursorPosition(item.ConsoleLocLeft, item.ConsoleLocTop);
                 Console.Write($"({string.Format("{0,5:0.0}", percentage)}%)");
-            }
-        }
-
-        private static void ThrowDownloadError(ConsoleItem item, string message = "")
-        {
-            lock (_sync)
-            {
-                Console.SetCursorPosition(item.ConsoleLocLeft, item.ConsoleLocTop);
-                Console.Write("          "); //Clear out any percentage characters
-                Console.SetCursorPosition(item.ConsoleLocLeft, item.ConsoleLocTop);
-                Console.Write($"ERROR");
-                if (!string.IsNullOrEmpty(message))
-                    Console.Write(": " + message);
             }
         }
     }

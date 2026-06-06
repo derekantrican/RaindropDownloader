@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>PocketDownloaderBase</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="PocketSharp" Version="5.0.0" />
-    <PackageReference Include="YoutubeExplode" Version="4.7.11" />
+    <PackageReference Include="YoutubeExplode" Version="6.4.3" />
   </ItemGroup>
 
 </Project>

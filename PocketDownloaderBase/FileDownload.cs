@@ -4,8 +4,6 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using YoutubeExplode;
-using YoutubeExplode.Models.MediaStreams;
 
 namespace PocketDownloaderBase
 {
@@ -13,59 +11,37 @@ namespace PocketDownloaderBase
     {
         private volatile bool allowedToRun;
         private Stream sourceStream;
-        private MuxedStreamInfo videoQuality;
-        private YoutubeClient youtubeClient;
         private string sourceUrl;
         private string destination;
         private bool disposeOnCompletion;
         private int chunkSize;
         private IProgress<double> progress;
-        private Lazy<int> contentLength;
+        private Lazy<long> contentLength;
 
-        public int BytesWritten { get; private set; }
-        public int ContentLength { get { return contentLength.Value; } }
+        public long BytesWritten { get; private set; }
+        public long ContentLength { get { return contentLength.Value; } }
         public bool Done { get { return ContentLength == BytesWritten; } }
 
-        public FileDownload(YoutubeClient client, MuxedStreamInfo quality, string destination, IProgress<double> progress = null)
+        public FileDownload(Stream source, string destination, bool disposeOnCompletion = true, int chunkSizeInBytes = 10000, IProgress<double> progress = null)
         {
             this.allowedToRun = true;
-
-            this.youtubeClient = client;
-            this.videoQuality = quality;
-            this.sourceStream = client.GetMediaStreamAsync(quality).Result;
-            this.destination = destination;
-            this.disposeOnCompletion = true;
-            this.chunkSize = 10000;
-            this.contentLength = new Lazy<int>(() => Convert.ToInt32(GetContentLength()));
-            this.progress = progress;
-
-            this.BytesWritten = 0;
-        }
-
-        public FileDownload(Stream source, string destination, bool disposeOnCompletion = true, int chunkSizeInBytes = 10000 /*Default to 0.01 mb*/, IProgress<double> progress = null)
-        {
-            this.allowedToRun = true;
-
             this.sourceStream = source;
             this.destination = destination;
             this.disposeOnCompletion = disposeOnCompletion;
             this.chunkSize = chunkSizeInBytes;
-            this.contentLength = new Lazy<int>(() => Convert.ToInt32(GetContentLength()));
+            this.contentLength = new Lazy<long>(() => GetContentLength());
             this.progress = progress;
-
             this.BytesWritten = 0;
         }
 
-        public FileDownload(string source, string destination, int chunkSizeInBytes = 10000 /*Default to 0.01 mb*/, IProgress<double> progress = null)
+        public FileDownload(string source, string destination, int chunkSizeInBytes = 10000, IProgress<double> progress = null)
         {
             this.allowedToRun = true;
-
             this.sourceUrl = source;
             this.destination = destination;
             this.chunkSize = chunkSizeInBytes;
-            this.contentLength = new Lazy<int>(() => Convert.ToInt32(GetContentLength()));
+            this.contentLength = new Lazy<long>(() => GetContentLength());
             this.progress = progress;
-
             this.BytesWritten = 0;
         }
 
@@ -116,88 +92,32 @@ namespace PocketDownloaderBase
         {
             using (var fs = new FileStream(destination, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
             {
-                int retries = 5;
-                while (BytesWritten < ContentLength/*allowedToRun*/)
+                while (BytesWritten < ContentLength)
                 {
-                    try
+                    if (!allowedToRun)
                     {
-                        if (!allowedToRun)
-                            continue;
-
-                        var buffer = new byte[chunkSize];
-                        var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
-
-                        if (bytesRead == 0)
-                            break;
-
-                        await fs.WriteAsync(buffer, 0, bytesRead);
-                        BytesWritten += bytesRead;
-                        progress?.Report((double)BytesWritten / ContentLength);
-
-                        retries = 0; //Reset retries
+                        await Task.Delay(100);
+                        continue;
                     }
-                    catch (Exception ex)
-                    {
-                        if (retries == 5)
-                        {
-                            Debug.WriteLine("Refreshing download stream...");
-                            stream = await RefreshStream(stream);
-                            retries = 0;
 
-                            if (stream == null)
-                                throw;
-                        }
+                    var buffer = new byte[chunkSize];
+                    var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
 
-                        Debug.WriteLine("Download hit an exception. Waiting 500ms before trying again...");
-                        Thread.Sleep(500);
-                        retries++;
-                    }
+                    if (bytesRead == 0)
+                        break;
+
+                    await fs.WriteAsync(buffer, 0, bytesRead);
+                    BytesWritten += bytesRead;
+                    progress?.Report((double)BytesWritten / ContentLength);
                 }
 
                 await fs.FlushAsync();
             }
         }
 
-        private async Task<Stream> RefreshStream(Stream stream)
-        {
-            stream?.Dispose();
-
-            int retries = 0;
-            while (retries < 10)
-            {
-                try
-                {
-                    if (sourceStream != null && sourceStream is MediaStream)
-                        return await youtubeClient.GetMediaStreamAsync(videoQuality);
-                    else if (sourceUrl != null)
-                    {
-                        break;
-                        //Todo: for some reason this doesn't work (the stream.ReadAsync in DownloadFromStream still throws an Exception)
-                        //var request = (HttpWebRequest)WebRequest.Create(sourceUrl);
-                        //request.Method = "GET";
-                        //request.UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.2; .NET CLR 1.0.3705;)";
-
-                        //using (var response = await request.GetResponseAsync())
-                        //{
-                        //    return response.GetResponseStream();
-                        //}
-                    }
-                }
-                catch
-                {
-                    retries++;
-                    if (retries == 10)
-                        throw;
-                }
-            }
-
-            return null;
-        }
-
         public Task Start()
         {
             allowedToRun = true;
-
             return Start(0);
         }
 

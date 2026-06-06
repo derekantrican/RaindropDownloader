@@ -338,3 +338,38 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+
+# Node.js
+node_modules/
+Backend/.env
+
+# React Native / Android
+MobileClient/ios/
+MobileClient/.expo/
+*.haste_map.*
+*.metro-cache/
+
+# Generated JS bundle (built by Gradle during release)
+MobileClient/android/app/src/main/assets/index.android.bundle
+MobileClient/android/app/src/main/res/drawable-*/
+
+# Android build artifacts
+MobileClient/android/.gradle/
+MobileClient/android/build/
+MobileClient/android/app/build/
+MobileClient/android/app/release/
+MobileClient/android/local.properties
+*.apk
+*.aab
+
+# Metro bundler
+.metro-health-check*
+
+# Buck
+MobileClient/android/app/libs/
+buck-out/
+\.buckd/
+
+# Gradle
+.gradle/
+gradlew.bat.stacktrace
