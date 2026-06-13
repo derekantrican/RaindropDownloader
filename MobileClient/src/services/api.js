@@ -1,5 +1,6 @@
 import Logger from './logger';
 import { NativeModules, NativeEventEmitter } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { YtDlpModule } = NativeModules;
 const ytDlpEmitter = new NativeEventEmitter(YtDlpModule);
@@ -15,6 +16,16 @@ class ApiService {
 
   async getBookmarks() {
     if (!this.testToken) throw new Error('No test token configured. Set it in Settings.');
+
+    // Load filter setting
+    let filterVideosOnly = true;
+    try {
+      const saved = await AsyncStorage.getItem('settings');
+      if (saved) {
+        const settings = JSON.parse(saved);
+        filterVideosOnly = settings.raindropFilter !== 'all';
+      }
+    } catch (e) { /* use default */ }
 
     const allBookmarks = [];
     let page = 0;
@@ -35,9 +46,11 @@ class ApiService {
       if (!data.items || data.items.length === 0) {
         hasMore = false;
       } else {
-        const videoItems = data.items.filter((item) => item.type === 'video');
+        const filtered = filterVideosOnly
+          ? data.items.filter((item) => item.type === 'video')
+          : data.items;
         allBookmarks.push(
-          ...videoItems.map((item) => ({
+          ...filtered.map((item) => ({
             id: item._id,
             title: item.title,
             link: item.link,
@@ -46,15 +59,16 @@ class ApiService {
             created: item.created,
             lastUpdate: item.lastUpdate,
             tags: item.tags,
+            type: item.type,
           }))
         );
-        Logger.log(`Page ${page}: ${data.items.length} items, ${videoItems.length} videos`);
+        Logger.log(`Page ${page}: ${data.items.length} items, ${filtered.length} matched filter`);
         hasMore = data.items.length === 50;
         page++;
       }
     }
 
-    Logger.log(`Found ${allBookmarks.length} video bookmarks total`);
+    Logger.log(`Found ${allBookmarks.length} bookmarks total`);
     return allBookmarks;
   }
 

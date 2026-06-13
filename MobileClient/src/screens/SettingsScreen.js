@@ -15,11 +15,29 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ApiService from '../services/api';
 import Logger from '../services/logger';
 
+const QUALITY_OPTIONS = [
+  { label: 'Best', value: 'best' },
+  { label: '1080p', value: '1080p' },
+  { label: '720p', value: '720p' },
+  { label: '480p', value: '480p' },
+  { label: '360p', value: '360p' },
+  { label: 'Audio only', value: 'audio' },
+];
+
+const FILTER_OPTIONS = [
+  { label: 'Videos only', value: 'video' },
+  { label: 'All bookmarks', value: 'all' },
+];
+
 export default function SettingsScreen({ navigation }) {
   const [wifiOnly, setWifiOnly] = useState(true);
   const [chunkSize, setChunkSize] = useState(3);
   const [testToken, setTestToken] = useState('');
   const [tokenSaved, setTokenSaved] = useState(false);
+  const [downloadLocation, setDownloadLocation] = useState('');
+  const [videoQuality, setVideoQuality] = useState('best');
+  const [sponsorBlock, setSponsorBlock] = useState(false);
+  const [raindropFilter, setRaindropFilter] = useState('video');
   const [logs, setLogs] = useState([]);
 
   useEffect(() => {
@@ -35,6 +53,10 @@ export default function SettingsScreen({ navigation }) {
       const settings = JSON.parse(saved);
       setWifiOnly(settings.wifiOnly ?? true);
       setChunkSize(settings.chunkSize ?? 3);
+      setDownloadLocation(settings.downloadLocation ?? '');
+      setVideoQuality(settings.videoQuality ?? 'best');
+      setSponsorBlock(settings.sponsorBlock ?? false);
+      setRaindropFilter(settings.raindropFilter ?? 'video');
     }
 
     const token = await AsyncStorage.getItem('raindrop_test_token');
@@ -80,10 +102,10 @@ export default function SettingsScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
+          <Text style={styles.backButton}>‹ Back</Text>
         </TouchableOpacity>
         <Text style={styles.header}>Settings</Text>
       </View>
@@ -116,8 +138,77 @@ export default function SettingsScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
+      {/* Raindrop Filter */}
+      <Text style={styles.sectionTitle}>Raindrop Filter</Text>
+      <View style={styles.optionRow}>
+        {FILTER_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.optionButton, raindropFilter === opt.value && styles.optionButtonActive]}
+            onPress={() => {
+              setRaindropFilter(opt.value);
+              saveSettings('raindropFilter', opt.value);
+            }}
+          >
+            <Text style={[styles.optionButtonText, raindropFilter === opt.value && styles.optionButtonTextActive]}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {/* Download Settings */}
       <Text style={styles.sectionTitle}>Downloads</Text>
+
+      <View style={styles.settingBlock}>
+        <Text style={styles.label}>Download location</Text>
+        <TextInput
+          style={styles.locationInput}
+          value={downloadLocation}
+          onChangeText={(val) => {
+            setDownloadLocation(val);
+            saveSettings('downloadLocation', val);
+          }}
+          placeholder="/storage/emulated/0/Download"
+          placeholderTextColor="#666"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Text style={styles.hintText}>Leave blank for default Downloads folder</Text>
+      </View>
+
+      <View style={styles.setting}>
+        <Text style={styles.label}>Video quality</Text>
+      </View>
+      <View style={styles.optionRow}>
+        {QUALITY_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.optionButton, videoQuality === opt.value && styles.optionButtonActive]}
+            onPress={() => {
+              setVideoQuality(opt.value);
+              saveSettings('videoQuality', opt.value);
+            }}
+          >
+            <Text style={[styles.optionButtonText, videoQuality === opt.value && styles.optionButtonTextActive]}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.setting}>
+        <Text style={styles.label}>Remove sponsors (SponsorBlock)</Text>
+        <Switch
+          value={sponsorBlock}
+          onValueChange={(val) => {
+            setSponsorBlock(val);
+            saveSettings('sponsorBlock', val);
+          }}
+          trackColor={{ true: '#5c6bc0' }}
+        />
+      </View>
+
       <View style={styles.setting}>
         <Text style={styles.label}>Download over WiFi only</Text>
         <Switch
@@ -173,20 +264,23 @@ export default function SettingsScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </View>
-      <ScrollView style={styles.logBox} contentContainerStyle={styles.logContent}>
-        {logs.length === 0 && <Text style={styles.logEmpty}>No log entries yet</Text>}
-        <Text selectable style={styles.logText}>
-          {logs.map((entry) => `[${entry.timestamp}] ${entry.level}: ${entry.message}`).join('\n')}
-        </Text>
-      </ScrollView>
-    </View>
+      <View style={styles.logBox}>
+        <ScrollView nestedScrollEnabled contentContainerStyle={styles.logContent}>
+          {logs.length === 0 && <Text style={styles.logEmpty}>No log entries yet</Text>}
+          <Text selectable style={styles.logText}>
+            {logs.map((entry) => `[${entry.timestamp}] ${entry.level}: ${entry.message}`).join('\n')}
+          </Text>
+        </ScrollView>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#3a3f51', padding: 16, paddingTop: 0 },
+  scrollContent: { paddingBottom: 30 },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  backButton: { color: '#7986cb', fontSize: 16, marginRight: 12 },
+  backButton: { color: '#ffffff', fontSize: 16, marginRight: 12 },
   header: { fontSize: 22, fontWeight: 'bold', color: '#e0e0e0' },
   sectionTitle: { fontSize: 14, color: '#9e9e9e', marginBottom: 6, marginTop: 12, textTransform: 'uppercase' },
   tokenSection: {
@@ -217,7 +311,40 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 8,
   },
+  settingBlock: {
+    backgroundColor: '#4a5068',
+    padding: 14,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
   label: { color: '#e0e0e0', fontSize: 15 },
+  locationInput: {
+    backgroundColor: '#2c2f3a',
+    color: '#fff',
+    padding: 10,
+    borderRadius: 4,
+    fontSize: 13,
+    marginTop: 8,
+    fontFamily: 'monospace',
+  },
+  hintText: { color: '#888', fontSize: 11, marginTop: 4 },
+  optionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  optionButton: {
+    backgroundColor: '#4a5068',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#5c6370',
+  },
+  optionButtonActive: { backgroundColor: '#5c6bc0', borderColor: '#5c6bc0' },
+  optionButtonText: { color: '#c0c0c0', fontSize: 13, fontWeight: 'bold' },
+  optionButtonTextActive: { color: '#fff' },
   chunkControls: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   chunkButton: {
     width: 30,
@@ -233,7 +360,7 @@ const styles = StyleSheet.create({
   logActions: { flexDirection: 'row', gap: 16 },
   logActionText: { color: '#7986cb', fontSize: 13 },
   logBox: {
-    flex: 1,
+    height: 200,
     backgroundColor: '#1e1e2e',
     borderRadius: 6,
     padding: 8,

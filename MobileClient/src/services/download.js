@@ -1,12 +1,41 @@
 import { NativeModules } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import Logger from './logger';
 
 const { YtDlpModule } = NativeModules;
 
+const QUALITY_FORMATS = {
+  best: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+  '1080p': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
+  '720p': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
+  '480p': 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best',
+  '360p': 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best',
+  'audio': 'bestaudio[ext=m4a]/bestaudio',
+};
+
 class DownloadService {
   constructor() {
     this.activeDownloads = new Set();
+  }
+
+  async getDownloadOptions() {
+    try {
+      const saved = await AsyncStorage.getItem('settings');
+      if (saved) {
+        const settings = JSON.parse(saved);
+        return {
+          outputDir: settings.downloadLocation || null,
+          format: QUALITY_FORMATS[settings.videoQuality || 'best'] || QUALITY_FORMATS.best,
+          sponsorBlock: settings.sponsorBlock ?? false,
+        };
+      }
+    } catch (e) { /* use defaults */ }
+    return {
+      outputDir: null,
+      format: QUALITY_FORMATS.best,
+      sponsorBlock: false,
+    };
   }
 
   async downloadVideo(item, onProgress) {
@@ -16,8 +45,10 @@ class DownloadService {
     Logger.log(`Downloading "${item.title}" via yt-dlp`);
     Logger.log(`URL: ${item.link}`);
 
+    const options = await this.getDownloadOptions();
+
     try {
-      const result = await YtDlpModule.download(item.link, item.title, processId);
+      const result = await YtDlpModule.download(item.link, item.title, processId, options);
       this.activeDownloads.delete(processId);
 
       const outLines = result.out || '';

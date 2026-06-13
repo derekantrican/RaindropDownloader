@@ -32,26 +32,35 @@ class YtDlpModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
     }
 
     @ReactMethod
-    fun download(url: String, title: String, processId: String, promise: Promise) {
+    fun download(url: String, title: String, processId: String, options: ReadableMap?, promise: Promise) {
         Thread {
             try {
-                val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                if (!downloadDir.exists()) downloadDir.mkdirs()
+                val outputDir = options?.getString("outputDir")
+                    ?: Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
+                val format = options?.getString("format")
+                    ?: "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+                val sponsorBlock = options?.getBoolean("sponsorBlock") ?: false
+
+                val dir = File(outputDir)
+                if (!dir.exists()) dir.mkdirs()
 
                 val request = YoutubeDLRequest(url)
-                request.addOption("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")
-                request.addOption("-o", "${downloadDir.absolutePath}/%(title)s.%(ext)s")
+                request.addOption("-f", format)
+                request.addOption("-o", "${dir.absolutePath}/%(title)s.%(ext)s")
                 request.addOption("--no-mtime")
                 request.addOption("--restrict-filenames")
                 request.addOption("--no-update")
                 request.addOption("--extractor-args", "youtube:player_client=android,web")
+
+                if (sponsorBlock) {
+                    request.addOption("--sponsorblock-remove", "all")
+                }
 
                 val response = YoutubeDL.getInstance().execute(
                     request,
                     processId,
                     false
                 ) { progress, eta, line ->
-                    // Send progress events to JS
                     val params = Arguments.createMap().apply {
                         putDouble("progress", progress.toDouble() / 100.0)
                         putDouble("eta", eta.toDouble())
