@@ -54,6 +54,7 @@ class YtDlpModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
 
                 if (sponsorBlock) {
                     request.addOption("--sponsorblock-remove", "all")
+                    request.addOption("--force-keyframes-at-cuts")
                 }
 
                 val response = YoutubeDL.getInstance().execute(
