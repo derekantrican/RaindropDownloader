@@ -103,7 +103,7 @@ export default function HomeScreen({ navigation }) {
     selectedItems.forEach((item) => {
       const p = progress[item.id];
       if (p !== undefined && p >= 0) {
-        total += p;
+        total += p > 1.0 ? 1.0 : p;
       }
     });
     return total / selectedItems.length;
@@ -166,7 +166,14 @@ export default function HomeScreen({ navigation }) {
       'YtDlpProgress',
       (event) => {
         const itemId = event.processId?.replace('dl_', '');
-        if (itemId && event.progress >= 0) {
+        if (!itemId) return;
+        const line = event.line || '';
+        const isPostProcessing = line.includes('[Merger]') || line.includes('[SponsorBlock]') ||
+          line.includes('[ffmpeg]') || line.includes('[FixupM3u8]') || line.includes('[ModifyChapters]');
+        if (isPostProcessing) {
+          // Sentinel: 1.01 = post-processing
+          progressBufferRef.current[itemId] = 1.01;
+        } else if (event.progress >= 0) {
           progressBufferRef.current[itemId] = event.progress;
         }
       }
@@ -265,7 +272,8 @@ export default function HomeScreen({ navigation }) {
   const renderItem = ({ item }) => {
     const isSelected = selected.has(item.id);
     const itemProgress = progress[item.id];
-    const progressFraction = itemProgress !== undefined && itemProgress >= 0 ? itemProgress : 0;
+    const isProcessing = itemProgress === 1.01;
+    const progressFraction = isProcessing ? 1.0 : (itemProgress !== undefined && itemProgress >= 0 ? itemProgress : 0);
     const isError = itemProgress !== undefined && itemProgress < 0;
     const isComplete = itemProgress === 1.0;
 
@@ -293,7 +301,10 @@ export default function HomeScreen({ navigation }) {
           )}
           <View style={styles.progressSide}>
             {isError && <Text style={styles.errorText}>ERROR</Text>}
-            {!isError && itemProgress !== undefined && (
+            {!isError && isProcessing && (
+              <Text style={styles.processingText}>Processing…</Text>
+            )}
+            {!isError && !isProcessing && itemProgress !== undefined && (
               <Text style={styles.progressText}>{(progressFraction * 100).toFixed(1)}%</Text>
             )}
           </View>
@@ -306,7 +317,7 @@ export default function HomeScreen({ navigation }) {
                 styles.itemProgressBarFill,
                 {
                   width: `${Math.min(progressFraction * 100, 100)}%`,
-                  backgroundColor: isError ? '#ff5252' : isComplete ? '#66bb6a' : '#5c6bc0',
+                  backgroundColor: isError ? '#ff5252' : isComplete ? '#66bb6a' : isProcessing ? '#ffa726' : '#5c6bc0',
                 },
               ]}
             />
@@ -530,6 +541,7 @@ const styles = StyleSheet.create({
   placeholderText: { color: '#888', fontSize: 11 },
   progressSide: { flex: 1, alignItems: 'flex-end', paddingRight: 4 },
   progressText: { color: '#e0e0e0', fontSize: 13 },
+  processingText: { color: '#ffa726', fontSize: 12, fontStyle: 'italic' },
   errorText: { color: '#ff5252', fontSize: 13, fontWeight: 'bold' },
   // Per-item progress bar
   itemProgressBarBg: {
