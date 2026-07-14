@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -19,10 +18,17 @@ namespace WindowsClient
 
         static void Main(string[] args)
         {
-            Downloader.AuthBrowserAction = s => Process.Start(s);
-            Downloader.AuthPocket().Wait();
+            string testToken = Environment.GetEnvironmentVariable("RAINDROP_TEST_TOKEN");
+            if (string.IsNullOrEmpty(testToken))
+            {
+                Console.WriteLine("Please set the RAINDROP_TEST_TOKEN environment variable.");
+                Console.WriteLine("Get a test token from https://app.raindrop.io/settings/integrations");
+                return;
+            }
 
-            List<Item> allArticles = Downloader.GetPocketItems().Result;
+            Downloader.AuthRaindrop(testToken);
+
+            List<Item> allArticles = Downloader.GetBookmarks().Result;
             List<Item> selectedArticles = GetSelectionFromList(allArticles);
 
             Console.WriteLine(); //Line separator
@@ -127,19 +133,19 @@ namespace WindowsClient
             List<Task> progressTasks = new List<Task>();
             foreach (ConsoleItem item in itemsToDownload)
             {
-                Task itemTask = DownloadPocketItem(item);
+                Task itemTask = DownloadItem(item);
                 progressTasks.Add(itemTask);
             }
 
             return progressTasks;
         }
 
-        public static async Task DownloadPocketItem(ConsoleItem itemToDownload)
+        public static async Task DownloadItem(ConsoleItem itemToDownload)
         {
             Progress<double> progress = new Progress<double>();
             progress.ProgressChanged += (s, e) => { UpdatePercentange(itemToDownload, Math.Round(e * 100, 1)); };
 
-            await Downloader.DownloadPocketItem(itemToDownload.Item, progress);
+            await Downloader.DownloadItem(itemToDownload.Item, progress);
         }
 
         private static object _sync = new object();

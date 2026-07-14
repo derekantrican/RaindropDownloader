@@ -43,8 +43,6 @@ namespace AndroidClient
             DatePicker.Date = DateTime.Now;
             TimePicker.Time = DateTime.Now.TimeOfDay;
 
-            Downloader.AuthBrowserAction = s => Launcher.OpenAsync(new Uri(s));
-            Downloader.SaveAccessCodeAction = s => Settings.Instance.PocketAuthCode = s;
             Downloader.DownloadDirectory = "/storage/emulated/0/Download";
             Progress<double> totalProgress = new Progress<double>();
             totalProgress.ProgressChanged += (sender, args) => SetTotalProgress(args);
@@ -52,12 +50,18 @@ namespace AndroidClient
 
             ListView.ItemsSource = Items;
 
-            AuthPocket();
+            AuthRaindrop();
         }
 
-        private async void AuthPocket()
+        private void AuthRaindrop()
         {
-            await Downloader.AuthPocket(Settings.Instance.PocketAuthCode);
+            if (string.IsNullOrEmpty(Settings.Instance.RaindropAccessToken))
+            {
+                Device.BeginInvokeOnMainThread(() => DisplayAlert("", "Paste a Raindrop test token in Settings (get one from app.raindrop.io/settings/integrations)", "Ok"));
+                return;
+            }
+
+            Downloader.AuthRaindrop(Settings.Instance.RaindropAccessToken);
         }
 
         private void Connectivity_ConnectivityChanged(object sender, ConnectivityChangedEventArgs e)
@@ -78,18 +82,18 @@ namespace AndroidClient
         {
             Items.Clear();
 
-            _ = GetPocketItems();
+            _ = GetRaindropItems();
         }
 
-        private async Task GetPocketItems(DateTime? sinceDate = null)
+        private async Task GetRaindropItems(DateTime? sinceDate = null)
         {
             SetGetButtonsEnabled(false);
 
             if (sinceDate == null)
                 sinceDate = SelectedDateTime;
 
-            List<Item> pocketItem = await Downloader.GetPocketItems(sinceDate);
-            pocketItem.ToList().ForEach(p => Items.Add(p));
+            List<Item> bookmarks = await Downloader.GetBookmarks(sinceDate);
+            bookmarks.ToList().ForEach(p => Items.Add(p));
 
             if (Settings.Instance.DownloadAllOnGet)
             {
@@ -152,7 +156,7 @@ namespace AndroidClient
             SetGetButtonsEnabled(false);
             Downloader.FailedDownloads = 0;
 
-            Downloader.ItemsScheduledForDownload = Items.Where(p => p.IsChecked).OrderBy(p => p.PocketItem.UpdateTime).ToList();
+            Downloader.ItemsScheduledForDownload = Items.Where(p => p.IsChecked).OrderBy(p => p.Bookmark.LastUpdate).ToList();
             Dictionary<Item, Video> itemsWithVideoInfo = new Dictionary<Item, Video>();
 
             try
@@ -192,7 +196,7 @@ namespace AndroidClient
                 Downloader.FilesDownloading.Clear();
                 foreach (Item item in chunk)
                 {
-                    Task itemTask = Downloader.DownloadPocketItem(item);
+                    Task itemTask = Downloader.DownloadItem(item);
                     progressTasks.Add(itemTask);
                 }
 
@@ -223,7 +227,7 @@ namespace AndroidClient
                 YoutubeClient client = new YoutubeClient();
                 foreach (Item item in Items)
                 {
-                    Video videoInfo = await client.GetVideoAsync(YoutubeClient.ParseVideoId(item.PocketItem.Uri.ToString()));
+                    Video videoInfo = await client.GetVideoAsync(YoutubeClient.ParseVideoId(item.Bookmark.Link));
 
                     string fileName = $"[{videoInfo.Author}] {videoInfo.Title}.mp4";
                     fileName = Utilities.RemoveInvalidPathCharacters(fileName);
@@ -262,25 +266,25 @@ namespace AndroidClient
             switch (buttonText)
             {
                 case "1D":
-                    _ = GetPocketItems(DateTime.Now.AddDays(-1));
+                    _ = GetRaindropItems(DateTime.Now.AddDays(-1));
                     break;
                 case "2D":
-                    _ = GetPocketItems(DateTime.Now.AddDays(-2));
+                    _ = GetRaindropItems(DateTime.Now.AddDays(-2));
                     break;
                 case "3D":
-                    _ = GetPocketItems(DateTime.Now.AddDays(-3));
+                    _ = GetRaindropItems(DateTime.Now.AddDays(-3));
                     break;
                 case "5D":
-                    _ = GetPocketItems(DateTime.Now.AddDays(-5));
+                    _ = GetRaindropItems(DateTime.Now.AddDays(-5));
                     break;
                 case "1W":
-                    _ = GetPocketItems(DateTime.Now.AddDays(-7));
+                    _ = GetRaindropItems(DateTime.Now.AddDays(-7));
                     break;
                 case "2W":
-                    _ = GetPocketItems(DateTime.Now.AddDays(-14));
+                    _ = GetRaindropItems(DateTime.Now.AddDays(-14));
                     break;
                 case "1M":
-                    _ = GetPocketItems(DateTime.Now.AddMonths(-1));
+                    _ = GetRaindropItems(DateTime.Now.AddMonths(-1));
                     break;
             }
         }

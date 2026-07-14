@@ -11,7 +11,7 @@ using Android;
 
 namespace AndroidClient.Droid
 {
-    [Activity(Label = "Pocket Downloader", Icon = "@drawable/Android", Theme = "@style/MainTheme", MainLauncher = true, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation)]
+    [Activity(Label = "Raindrop Downloader", Icon = "@drawable/Android", Theme = "@style/MainTheme", MainLauncher = true, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation)]
     public class MainActivity : global::Xamarin.Forms.Platform.Android.FormsAppCompatActivity
     {
         protected override void OnCreate(Bundle savedInstanceState)

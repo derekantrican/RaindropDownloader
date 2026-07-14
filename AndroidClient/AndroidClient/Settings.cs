@@ -6,10 +6,10 @@ namespace AndroidClient
     {
         public static Settings Instance = new Settings();
         #region Settings
-        public string PocketAuthCode
+        public string RaindropAccessToken
         {
-            get { return ReadSetting(nameof(PocketAuthCode), ""); }
-            set { SetSetting(nameof(PocketAuthCode), value); }
+            get { return ReadSetting(nameof(RaindropAccessToken), ""); }
+            set { SetSetting(nameof(RaindropAccessToken), value); }
         }
 
         public bool ShowThumbnails

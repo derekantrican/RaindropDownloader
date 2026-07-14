@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="PocketSharp" Version="5.0.0" />
+    <PackageReference Include="System.Text.Json" Version="6.0.10" />
     <PackageReference Include="YoutubeExplode" Version="4.7.11" />
   </ItemGroup>
 

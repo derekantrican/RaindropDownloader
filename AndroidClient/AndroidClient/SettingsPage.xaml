@@ -8,6 +8,10 @@
     <ContentPage.Content>
         <StackLayout>
             <StackLayout Orientation="Horizontal" Margin="5">
+                <Label Text="Raindrop Test Token" VerticalOptions="Center"/>
+                <Entry Text="{Binding RaindropAccessToken}" WidthRequest="220" Placeholder="Paste token from app.raindrop.io/settings/integrations"/>
+            </StackLayout>
+            <StackLayout Orientation="Horizontal" Margin="5">
                 <Switch IsToggled="{Binding ShowThumbnails}"/>
                 <Label Text="Show Thumbnails"/>
             </StackLayout>
