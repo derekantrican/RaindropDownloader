@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using YoutubeExplode;
 using YoutubeExplode.Models.MediaStreams;
 
-namespace PocketDownloaderBase
+namespace RaindropDownloaderBase
 {
     public class FileDownload
     {

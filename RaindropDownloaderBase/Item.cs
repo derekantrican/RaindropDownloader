@@ -1,12 +1,11 @@
-﻿using PocketSharp.Models;
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using YoutubeExplode;
 using YoutubeExplode.Models;
 
-namespace PocketDownloaderBase
+namespace RaindropDownloaderBase
 {
     public class Item : INotifyPropertyChanged
     {
@@ -19,16 +18,18 @@ namespace PocketDownloaderBase
 
 
         #region Constructor
-        public Item(PocketItem pocketItem)
+        public Item(RaindropBookmark bookmark)
         {
-            PocketItem = pocketItem;
-            Title = pocketItem.Title;
+            Bookmark = bookmark;
+            Title = bookmark.Title;
         }
         #endregion Constructor
 
 
         #region Public Properties
-        public PocketItem PocketItem { get; set; }
+        public RaindropBookmark Bookmark { get; set; }
+
+        public Uri VideoUri => new Uri(Bookmark.Link);
 
         public string Title
         {
@@ -69,7 +70,10 @@ namespace PocketDownloaderBase
         {
             get
             {
-                return PocketItem.LeadImage.Uri;
+                if (!string.IsNullOrEmpty(Bookmark.Cover))
+                    return new Uri(Bookmark.Cover);
+
+                return null;
             }
         }
         #endregion Public Properties
@@ -86,7 +90,7 @@ namespace PocketDownloaderBase
             if (videoInfo == null)
             {
                 YoutubeClient client = new YoutubeClient();
-                videoInfo = await client.GetVideoAsync(YoutubeClient.ParseVideoId(PocketItem.Uri.ToString()));
+                videoInfo = await client.GetVideoAsync(YoutubeClient.ParseVideoId(Bookmark.Link));
             }
 
             return videoInfo;

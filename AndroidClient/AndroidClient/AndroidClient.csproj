@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\PocketDownloaderBase\PocketDownloaderBase.csproj" />
+    <ProjectReference Include="..\..\RaindropDownloaderBase\RaindropDownloaderBase.csproj" />
   </ItemGroup>
 
   <ItemGroup>

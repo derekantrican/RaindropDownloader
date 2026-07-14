@@ -1,31 +1,25 @@
-﻿using PocketSharp;
-using PocketSharp.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
 using YoutubeExplode;
 using YoutubeExplode.Models;
 using YoutubeExplode.Models.MediaStreams;
 
-namespace PocketDownloaderBase
+namespace RaindropDownloaderBase
 {
     public class Downloader //Todo: should probably rename this class
     {
         #region Private Properties
-        const string POCKETCONSUMERKEY = "85079-85ce76fc6f685bfd96affa74";
-        private static PocketClient pocketClient;
+        private static RaindropClient raindropClient;
         #endregion Private Properties
 
 
         #region Public Properties
-        public static Action<string> AuthBrowserAction { get; set; }
-        public static Action<string> SaveAccessCodeAction { get; set; }
         public static string DownloadDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
         public static IProgress<double> TotalProgress { get; set; }
         public static int FailedDownloads { get; set; } = 0;
@@ -52,7 +46,7 @@ namespace PocketDownloaderBase
                 if (File.Exists(targetPath))
                     File.Delete(targetPath);
 
-                string youTubeVideoId = YoutubeClient.ParseVideoId(itemToDownload.PocketItem.Uri.ToString());
+                string youTubeVideoId = YoutubeClient.ParseVideoId(itemToDownload.Bookmark.Link);
                 Video videoInfo = await itemToDownload.GetOrGenerateVideoInfo();
                 MediaStreamInfoSet streamInfoSet = await client.GetVideoMediaStreamInfosAsync(youTubeVideoId);
                 List<MuxedStreamInfo> qualities = streamInfoSet.Muxed.OrderByDescending(s => s.VideoQuality).ToList();
@@ -105,9 +99,9 @@ namespace PocketDownloaderBase
                 if (File.Exists(targetPath))
                     File.Delete(targetPath);
 
-                string youTubeVideoId = YoutubeClient.ParseVideoId(itemToDownload.PocketItem.Uri.ToString());
+                string youTubeVideoId = YoutubeClient.ParseVideoId(itemToDownload.Bookmark.Link);
 
-                string saveMediaURL = $"https://dev.invidio.us/watch?v={youTubeVideoId}"; //"https://odownloader.com/download?q=" + HttpUtility.UrlEncode(itemToDownload.PocketItem.Uri.ToString());
+                string saveMediaURL = $"https://dev.invidio.us/watch?v={youTubeVideoId}";
                 using (WebClient client = new WebClient())
                 {
                     client.Headers.Add("user-agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.2; .NET CLR 1.0.3705;)");
@@ -141,59 +135,22 @@ namespace PocketDownloaderBase
 
 
         #region Public Methods
-        public static async Task AuthPocket(string accessCode = null)
+        public static void AuthRaindrop(string testToken)
         {
-            if (string.IsNullOrEmpty(accessCode) && AuthBrowserAction != null)
-            {
-                pocketClient = new PocketClient(POCKETCONSUMERKEY) { CallbackUri = "https://derekantrican.github.io/authsuccess" };
-                string requestCode = await pocketClient.GetRequestCode();
-                AuthBrowserAction.Invoke(pocketClient.GenerateAuthenticationUri().ToString());
-
-                PocketUser user;
-                while (true)
-                {
-                    try
-                    {
-                        user = await pocketClient.GetUser(requestCode);
-                        break;
-                    }
-                    catch { }
-                    Thread.Sleep(500);
-                }
-
-                accessCode = user.Code;
-                SaveAccessCodeAction?.Invoke(accessCode);
-            }
-
-            pocketClient = new PocketClient(POCKETCONSUMERKEY, accessCode);
+            raindropClient = new RaindropClient(testToken);
         }
 
-        public static async Task<List<Item>> GetPocketItems(DateTime? sinceDate = null)
+        public static async Task<List<Item>> GetBookmarks(DateTime? sinceDate = null)
         {
-            IEnumerable<PocketItem> items = null;
-            try
-            {
-                items = await pocketClient.Get();
-            }
-            catch (PocketException ex)
-            {
-                if (ex.PocketErrorCode == 107) //Need to reauth
-                {
-                    //Todo: need to alert user that we need to reauth
-                    await AuthPocket(null);
-                    items = await pocketClient.Get();
-                }
-            }
-
-            List<PocketItem> pocketItemsList = items.Where(p => p.Uri.ToString().Contains("youtu")).ToList();
+            var bookmarks = await raindropClient.GetYouTubeBookmarks();
 
             if (sinceDate != null)
-                pocketItemsList = pocketItemsList.Where(p => p.UpdateTime.Value >= sinceDate.Value.ToUniversalTime()).ToList();
+                bookmarks = bookmarks.Where(b => b.LastUpdate >= sinceDate.Value.ToUniversalTime()).ToList();
 
-            return pocketItemsList.Select(p => new Item(p)).ToList();
+            return bookmarks.Select(b => new Item(b)).ToList();
         }
 
-        public static async Task DownloadPocketItem(Item itemToDownload, Progress<double> progress = null)
+        public static async Task DownloadItem(Item itemToDownload, Progress<double> progress = null)
         {
             //Generate download path
             YoutubeClient client = new YoutubeClient();

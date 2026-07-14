@@ -1,6 +1,6 @@
-# PocketDownloader
+# RaindropDownloader
 
-A simple application that allows a user to download YouTube videos saved to [Pocket](https://getpocket.com). Uses [PocketSharp](https://github.com/ceee/PocketSharp) and [YouTubeExplode](https://github.com/Tyrrrz/YoutubeExplode). Available for both Windows and Android!
+A simple application that allows a user to download YouTube videos saved to [Raindrop.io](https://raindrop.io). Uses the [Raindrop.io API](https://developer.raindrop.io) and [YouTubeExplode](https://github.com/Tyrrrz/YoutubeExplode). Available for both Windows and Android!
 
 ### Windows Client:
 
