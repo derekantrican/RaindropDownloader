@@ -15,7 +15,7 @@ Console app (.NET) that authenticates with Raindrop.io using a test token, fetch
 ### Mobile Client (`MobileClient/`)
 React Native Android app that authenticates with Raindrop.io using a test token, lists YouTube bookmarks, and downloads them using [yt-dlp](https://github.com/yt-dlp/yt-dlp) via the [youtubedl-android](https://github.com/yausername/youtubedl-android) native module. See [MobileClient/DEVELOPMENT.md](MobileClient/DEVELOPMENT.md) for the full dev setup.
 
-<img src="https://i.imgur.com/OzbZlLw.gif" width="400">
+<img width="400" src="https://github.com/user-attachments/assets/4ca72d3a-ffe1-4ff5-b481-5a5e3788e9ef" />
 
 ## Getting a Raindrop.io Test Token
 
