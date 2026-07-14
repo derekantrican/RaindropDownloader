@@ -1,9 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using YoutubeExplode;
-using YoutubeExplode.Models;
 
 namespace RaindropDownloaderBase
 {
@@ -13,7 +10,6 @@ namespace RaindropDownloaderBase
         private string title = "";
         private bool isChecked;
         private double progress = 0;
-        private Video videoInfo;
         #endregion Private Properties
 
 
@@ -77,25 +73,6 @@ namespace RaindropDownloaderBase
             }
         }
         #endregion Public Properties
-
-
-        #region Private Methods
-
-        #endregion Private Methods
-
-
-        #region Public Methods
-        public async Task<Video> GetOrGenerateVideoInfo()
-        {
-            if (videoInfo == null)
-            {
-                YoutubeClient client = new YoutubeClient();
-                videoInfo = await client.GetVideoAsync(YoutubeClient.ParseVideoId(Bookmark.Link));
-            }
-
-            return videoInfo;
-        }
-        #endregion Public Methods
 
 
         #region Property Changed

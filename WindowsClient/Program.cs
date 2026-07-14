@@ -28,6 +28,9 @@ namespace WindowsClient
 
             Downloader.AuthRaindrop(testToken);
 
+            Console.WriteLine("Preparing yt-dlp (first run may take a moment to download binaries)...");
+            Downloader.EnsureYoutubeDL().Wait();
+
             List<Item> allArticles = Downloader.GetBookmarks().Result;
             List<Item> selectedArticles = GetSelectionFromList(allArticles);
 
