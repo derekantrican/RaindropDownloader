@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using YoutubeExplode;
 using YoutubeExplode.Models;
 
-namespace PocketDownloaderBase
+namespace RaindropDownloaderBase
 {
     public class Item : INotifyPropertyChanged
     {

@@ -10,7 +10,7 @@ using YoutubeExplode;
 using YoutubeExplode.Models;
 using YoutubeExplode.Models.MediaStreams;
 
-namespace PocketDownloaderBase
+namespace RaindropDownloaderBase
 {
     public class Downloader //Todo: should probably rename this class
     {
