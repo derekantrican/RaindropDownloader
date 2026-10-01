@@ -1,0 +1,45 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/MobileClient"
+    schedule:
+      interval: "weekly"
+    # 0 = no routine version-update PRs. Security-update PRs (enabled in repo settings)
+    # still happen, and they respect the ignore rules below.
+    open-pull-requests-limit: 0
+    ignore:
+      # ---------------------------------------------------------------------------------
+      # react-native / react: minor+major bumps are NOT drop-in upgrades.
+      #
+      # In Oct 2026, a Dependabot security PR (#13) bumped react-native 0.74.0 -> 0.87.1
+      # by editing package.json only. What we found when trying to build it:
+      #   1. `npm install` fails (ERESOLVE): react-native 0.87 has peer react@^19.2.3,
+      #      but we're on react 18.2.0. RN 0.87 also requires Node ^22.13 || ^24.3.
+      #   2. After bumping react to 19, `gradlew assembleRelease` fails immediately:
+      #      "Could not read script '.../@react-native-community/cli-platform-android/
+      #      native_modules.gradle' as it does not exist." RN >= 0.75 no longer bundles
+      #      the community CLI and autolinking moved into the RN Gradle plugin.
+      #
+      # A proper upgrade (do it on a branch, follow the React Native Upgrade Helper diff
+      # https://react-native-community.github.io/upgrade-helper/?from=0.74.0&to=0.87.1):
+      #   - Bump react (+ @types/react) to 19.x alongside react-native.
+      #   - Add @react-native-community/cli, cli-platform-android and @react-native/*
+      #     dev packages (babel-preset, metro-config) as devDependencies.
+      #   - Update android/settings.gradle, android/build.gradle, android/app/build.gradle
+      #     to the new template (autolinkLibrariesFromCommand / autolinkLibrariesWithApp).
+      #   - Bump Gradle wrapper (currently 8.6), AGP, Kotlin, compile/target SDK and NDK
+      #     to the versions the 0.87 template uses.
+      #   - Update MainApplication.kt / MainActivity.kt to the 0.87 boilerplate.
+      #   - New Architecture is mandatory (>= 0.82): verify our native YtDlpModule and
+      #     DownloadService still work (legacy bridge modules go through the interop layer).
+      #   - Bump RN libraries to New-Arch-compatible versions: react-native-screens,
+      #     safe-area-context, async-storage, netinfo, datetimepicker, webview,
+      #     react-native-fs, @react-navigation/*.
+      #   - Test on a real device: bookmark fetch, downloads, progress, SponsorBlock,
+      #     background service, settings persistence.
+      # Remove these ignore rules once that upgrade lands.
+      # ---------------------------------------------------------------------------------
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
