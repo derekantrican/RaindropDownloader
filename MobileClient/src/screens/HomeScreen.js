@@ -173,8 +173,11 @@ export default function HomeScreen({ navigation }) {
         const itemId = event.processId?.replace('dl_', '');
         if (!itemId) return;
         const line = event.line || '';
-        const isPostProcessing = line.includes('[Merger]') || line.includes('[SponsorBlock]') ||
-          line.includes('[ffmpeg]') || line.includes('[FixupM3u8]') || line.includes('[ModifyChapters]');
+        // Note: [SponsorBlock] is deliberately excluded — yt-dlp fetches segments *before* the
+        // download starts, so matching it would flip to "processing" immediately. The actual
+        // cutting after download is logged as [ModifyChapters].
+        const isPostProcessing = line.includes('[Merger]') || line.includes('[ffmpeg]') ||
+          line.includes('[FixupM3u8]') || line.includes('[ModifyChapters]');
         if (isPostProcessing) {
           // Sentinel: 1.01 = post-processing (download finished, still merging / cutting)
           progressBufferRef.current[itemId] = 1.01;
