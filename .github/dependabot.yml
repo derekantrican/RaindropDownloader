@@ -5,7 +5,7 @@ updates:
     schedule:
       interval: "weekly"
     # 0 = no routine version-update PRs. Security-update PRs (enabled in repo settings)
-    # still happen, and they respect the ignore rules below.
+    # still happen.
     open-pull-requests-limit: 0
     ignore:
       # ---------------------------------------------------------------------------------
@@ -38,6 +38,13 @@ updates:
       #   - Test on a real device: bookmark fetch, downloads, progress, SponsorBlock,
       #     background service, settings persistence.
       # Remove these ignore rules once that upgrade lands.
+      #
+      # CAVEAT: these rules only stop *version* updates. They did NOT stop a security PR
+      # (#15) that bumped react-native to 0.87.1 to fix a transitive alert (image-size,
+      # pulled in by Metro). "@dependabot ignore ..." comments are also rejected on
+      # multi-dependency PRs like that one. What works: close the PR and dismiss the
+      # underlying alert(s) whose only fix is the RN upgrade (image-size, fast-xml-parser,
+      # @react-native-community/cli*) — all build-time tooling, not shipped in the APK.
       # ---------------------------------------------------------------------------------
       - dependency-name: "react-native"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
