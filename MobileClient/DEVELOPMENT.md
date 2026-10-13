@@ -53,6 +53,7 @@ MobileClient/
 └── src/
     ├── screens/
     │   ├── HomeScreen.js       # Main screen (bookmarks list, download queue, progress)
+    │   ├── DownloadsScreen.js  # Downloaded files (tile/details view, play, delete)
     │   └── SettingsScreen.js   # Settings (token, download location, quality, etc.)
     └── services/
         ├── api.js              # Raindrop.io API client

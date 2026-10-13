@@ -4,8 +4,18 @@ import com.facebook.react.bridge.*
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import com.yausername.youtubedl_android.YoutubeDLException
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.graphics.Bitmap
+import android.media.ThumbnailUtils
+import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
+import android.util.Size
+import android.webkit.MimeTypeMap
+import androidx.core.content.FileProvider
 import java.io.File
+import java.io.FileOutputStream
 
 class YtDlpModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
@@ -119,6 +129,71 @@ class YtDlpModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
         } catch (e: Exception) {
             promise.reject("YTDLP_VERSION_ERROR", e.message, e)
         }
+    }
+
+    @ReactMethod
+    fun openFile(path: String, promise: Promise) {
+        try {
+            val file = File(path)
+            if (!file.exists()) {
+                promise.reject("OPEN_FILE_NOT_FOUND", "File not found: $path")
+                return
+            }
+            val uri = FileProvider.getUriForFile(
+                reactApplicationContext,
+                "${reactApplicationContext.packageName}.downloadsprovider",
+                file
+            )
+            val mimeType = MimeTypeMap.getSingleton()
+                .getMimeTypeFromExtension(file.extension.lowercase()) ?: "video/*"
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            reactApplicationContext.startActivity(intent)
+            promise.resolve(true)
+        } catch (e: ActivityNotFoundException) {
+            promise.reject("OPEN_FILE_NO_APP", "No app found to open this file", e)
+        } catch (e: Exception) {
+            promise.reject("OPEN_FILE_ERROR", e.message ?: "Failed to open file", e)
+        }
+    }
+
+    // Returns a file:// URI to a cached JPEG frame of the video, or null if one can't be made
+    @ReactMethod
+    fun getThumbnail(path: String, promise: Promise) {
+        Thread {
+            try {
+                val file = File(path)
+                if (!file.exists()) {
+                    promise.resolve(null)
+                    return@Thread
+                }
+                val thumbDir = File(reactApplicationContext.cacheDir, "thumbnails")
+                if (!thumbDir.exists()) thumbDir.mkdirs()
+                val key = "${file.absolutePath}|${file.lastModified()}".hashCode().toUInt().toString(16)
+                val thumbFile = File(thumbDir, "$key.jpg")
+
+                if (!thumbFile.exists()) {
+                    val bitmap: Bitmap? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        ThumbnailUtils.createVideoThumbnail(file, Size(320, 180), null)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        ThumbnailUtils.createVideoThumbnail(file.absolutePath, MediaStore.Images.Thumbnails.MINI_KIND)
+                    }
+                    if (bitmap == null) {
+                        promise.resolve(null)
+                        return@Thread
+                    }
+                    FileOutputStream(thumbFile).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+                    bitmap.recycle()
+                }
+                promise.resolve("file://${thumbFile.absolutePath}")
+            } catch (e: Exception) {
+                // Not a video, or no decodable frame — caller falls back to a placeholder
+                promise.resolve(null)
+            }
+        }.start()
     }
 
     private fun sendEvent(eventName: String, params: WritableMap) {

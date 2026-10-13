@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Default download location (public Downloads) and any custom path under external storage -->
+    <external-path name="external" path="." />
+    <root-path name="root" path="." />
+</paths>

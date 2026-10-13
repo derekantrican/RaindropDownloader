@@ -72,6 +72,19 @@ class ApiService {
     return allBookmarks;
   }
 
+  // Raindrop moves deleted bookmarks to Trash rather than removing them permanently
+  async deleteBookmark(id) {
+    if (!this.testToken) throw new Error('No test token configured. Set it in Settings.');
+    const response = await fetch(`https://api.raindrop.io/rest/v1/raindrop/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${this.testToken}` },
+    });
+    if (response.status === 401) throw new Error('Test token is invalid or expired');
+    // 404 means it's already gone, which is what we wanted
+    if (!response.ok && response.status !== 404) throw new Error(`API error: ${response.status}`);
+    Logger.log(`Deleted Raindrop bookmark ${id}`);
+  }
+
   async getVideoInfo(videoUrl) {
     Logger.log(`Getting info for: ${videoUrl}`);
     try {

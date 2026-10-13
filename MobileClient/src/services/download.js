@@ -14,9 +14,43 @@ const QUALITY_FORMATS = {
   'audio': 'bestaudio[ext=m4a]/bestaudio',
 };
 
+const AUDIO_EXTENSIONS = ['m4a', 'mp3', 'opus', 'ogg', 'aac', 'flac', 'wav'];
+const MEDIA_EXTENSIONS = ['mp4', 'mkv', 'webm', 'mov', ...AUDIO_EXTENSIONS];
+
+// yt-dlp leftovers that aren't finished downloads: partial files, per-format streams
+// awaiting merge (e.g. "title.f137.mp4"), and intermediate post-processing files
+const isIntermediateFile = (name) =>
+  /\.(part|ytdl|temp|tmp)$/i.test(name) || /\.f\d+\.[^.]+$/i.test(name) || /\.temp\.[^.]+$/i.test(name);
+
+// Maps downloaded file name -> Raindrop bookmark, so a file can be traced back to its bookmark
+const INDEX_KEY = 'downloadIndex';
+const fileNameOf = (path) => path.split('/').pop();
+
 class DownloadService {
   constructor() {
     this.activeDownloads = new Set();
+    // Serializes index writes — several downloads can finish at the same time
+    this.indexWriteChain = Promise.resolve();
+  }
+
+  async getIndex() {
+    try {
+      const saved = await AsyncStorage.getItem(INDEX_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  updateIndex(mutate) {
+    this.indexWriteChain = this.indexWriteChain
+      .then(async () => {
+        const index = await this.getIndex();
+        mutate(index);
+        await AsyncStorage.setItem(INDEX_KEY, JSON.stringify(index));
+      })
+      .catch((e) => Logger.error('Failed to update download index', e));
+    return this.indexWriteChain;
   }
 
   async getDownloadOptions() {
@@ -38,6 +72,61 @@ class DownloadService {
       sponsorBlock: false,
       preciseCuts: false,
     };
+  }
+
+  async getDownloadDir() {
+    try {
+      const saved = await AsyncStorage.getItem('settings');
+      if (saved) {
+        const settings = JSON.parse(saved);
+        if (settings.downloadLocation) return settings.downloadLocation;
+      }
+    } catch (e) { /* use default */ }
+    return RNFS.DownloadDirectoryPath;
+  }
+
+  // Finished media files in the download folder, newest first
+  async listDownloads() {
+    const dir = await this.getDownloadDir();
+    if (!(await RNFS.exists(dir))) return [];
+    const [entries, index] = await Promise.all([RNFS.readDir(dir), this.getIndex()]);
+    return entries
+      .filter((e) => e.isFile() && !isIntermediateFile(e.name))
+      .map((e) => ({ entry: e, ext: e.name.split('.').pop().toLowerCase() }))
+      .filter(({ ext }) => MEDIA_EXTENSIONS.includes(ext))
+      .map(({ entry, ext }) => ({
+        path: entry.path,
+        name: entry.name,
+        size: Number(entry.size),
+        modified: entry.mtime ? new Date(entry.mtime) : null,
+        isAudio: AUDIO_EXTENSIONS.includes(ext),
+        raindropId: index[entry.name]?.raindropId ?? null,
+      }))
+      .sort((a, b) => (b.modified?.getTime() || 0) - (a.modified?.getTime() || 0));
+  }
+
+  async getThumbnail(path) {
+    try {
+      return await YtDlpModule.getThumbnail(path);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async openFile(path) {
+    Logger.log(`Opening ${path}`);
+    await YtDlpModule.openFile(path);
+  }
+
+  async deleteFile(path) {
+    await RNFS.unlink(path);
+    Logger.log(`Deleted ${path}`);
+    await this.updateIndex((index) => { delete index[fileNameOf(path)]; });
+  }
+
+  // Bookmark is gone, so stop linking the file to it
+  async unlinkRaindrop(path) {
+    await this.updateIndex((index) => { delete index[fileNameOf(path)]; });
   }
 
   async downloadVideo(item, onProgress) {
@@ -69,6 +158,9 @@ class DownloadService {
 
         if (filePath) {
           Logger.log(`Saved to: ${filePath}`);
+          await this.updateIndex((index) => {
+            index[fileNameOf(filePath)] = { raindropId: item.id, title: item.title };
+          });
         }
 
         return { success: true, path: filePath };

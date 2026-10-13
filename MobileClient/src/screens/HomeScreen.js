@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Image,
   InteractionManager,
+  Modal,
+  Pressable,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
@@ -37,6 +39,7 @@ export default function HomeScreen({ navigation }) {
   const [sinceDate, setSinceDate] = useState(new Date());
   const [activeRange, setActiveRange] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const pausedRef = useRef(false);
   const stoppedRef = useRef(false);
   const queueRef = useRef([]);
@@ -352,10 +355,29 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Raindrop Downloader</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
+        <TouchableOpacity onPress={() => setMenuOpen(true)}>
           <Text style={styles.menuIcon}>⋮</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)}>
+          <View style={styles.menu}>
+            {['Downloads', 'Settings'].map((screen) => (
+              <TouchableOpacity
+                key={screen}
+                style={styles.menuItem}
+                onPress={() => {
+                  setMenuOpen(false);
+                  navigation.navigate(screen);
+                }}
+              >
+                <Text style={styles.menuItemText}>{screen}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Date picker + GET */}
       <View style={styles.dateRow}>
@@ -472,6 +494,19 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#e0e0e0' },
   menuIcon: { fontSize: 24, color: '#e0e0e0', paddingHorizontal: 8 },
+  menuBackdrop: { flex: 1 },
+  menu: {
+    position: 'absolute',
+    top: 8,
+    right: 12,
+    minWidth: 160,
+    backgroundColor: '#4a5068',
+    borderRadius: 6,
+    paddingVertical: 4,
+    elevation: 8,
+  },
+  menuItem: { paddingHorizontal: 16, paddingVertical: 12 },
+  menuItemText: { color: '#e0e0e0', fontSize: 15 },
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
