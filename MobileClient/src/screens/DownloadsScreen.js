@@ -11,11 +11,13 @@ import {
   RefreshControl,
   Modal,
   Pressable,
+  ToastAndroid,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ApiService from '../services/api';
 import DownloadService from '../services/download';
+import PendingDeletes from '../services/pendingDeletes';
 import Logger from '../services/logger';
 
 const VIEW_MODES = [
@@ -67,6 +69,7 @@ export default function DownloadsScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState('tile');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [pendingCount, setPendingCount] = useState(PendingDeletes.count);
 
   useEffect(() => {
     AsyncStorage.getItem('downloadsViewMode').then((saved) => {
@@ -90,8 +93,11 @@ export default function DownloadsScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       loadFiles();
+      PendingDeletes.process();
     }, [loadFiles])
   );
+
+  useEffect(() => PendingDeletes.subscribe(setPendingCount), []);
 
   const changeViewMode = (mode) => {
     setViewMode(mode);
@@ -113,13 +119,18 @@ export default function DownloadsScreen({ navigation }) {
     if (fromRaindrop) {
       try {
         await ApiService.deleteBookmark(file.raindropId);
-        await DownloadService.unlinkRaindrop(file.path);
-        setFiles((prev) => prev.map((f) => (f.path === file.path ? { ...f, raindropId: null } : f)));
       } catch (error) {
-        Logger.error(`Failed to delete Raindrop bookmark for "${file.name}"`, error);
-        Alert.alert('Error', 'Failed to delete from Raindrop: ' + error.message);
-        return;
+        if (!error.isNetworkError) {
+          Logger.error(`Failed to delete Raindrop bookmark for "${file.name}"`, error);
+          Alert.alert('Error', 'Failed to delete from Raindrop: ' + error.message);
+          return;
+        }
+        // Offline: queue it and carry on as if it succeeded
+        await PendingDeletes.enqueue(file.raindropId, displayName(file.name));
+        ToastAndroid.show('Offline: will delete from Raindrop when back online', ToastAndroid.LONG);
       }
+      await DownloadService.unlinkRaindrop(file.path);
+      setFiles((prev) => prev.map((f) => (f.path === file.path ? { ...f, raindropId: null } : f)));
     }
     if (fromDevice) {
       try {
@@ -175,9 +186,16 @@ export default function DownloadsScreen({ navigation }) {
       </View>
 
       <View style={styles.toolbar}>
-        <Text style={styles.countText}>
-          {files.length} {files.length === 1 ? 'file' : 'files'}
-        </Text>
+        <View>
+          <Text style={styles.countText}>
+            {files.length} {files.length === 1 ? 'file' : 'files'}
+          </Text>
+          {pendingCount > 0 && (
+            <Text style={styles.pendingText}>
+              {pendingCount} pending Raindrop {pendingCount === 1 ? 'delete' : 'deletes'}
+            </Text>
+          )}
+        </View>
         <View style={styles.optionRow}>
           {VIEW_MODES.map((mode) => (
             <TouchableOpacity
@@ -208,7 +226,7 @@ export default function DownloadsScreen({ navigation }) {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); loadFiles(); }}
+              onRefresh={() => { setRefreshing(true); loadFiles(); PendingDeletes.process(); }}
               colors={['#5c6bc0']}
             />
           }
@@ -283,6 +301,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   countText: { color: '#9e9e9e', fontSize: 13 },
+  pendingText: { color: '#ffa726', fontSize: 11, marginTop: 2 },
   optionRow: { flexDirection: 'row', gap: 6 },
   optionButton: {
     backgroundColor: '#4a5068',

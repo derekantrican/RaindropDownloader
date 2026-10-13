@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ApiService from './src/services/api';
+import PendingDeletes from './src/services/pendingDeletes';
 import HomeScreen from './src/screens/HomeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import DownloadsScreen from './src/screens/DownloadsScreen';
@@ -14,7 +15,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadToken();
+    let unsubscribe;
+    // Token has to be set before queued Raindrop deletes can be sent
+    loadToken().then(() => { unsubscribe = PendingDeletes.start(); });
+    return () => unsubscribe?.();
   }, []);
 
   const loadToken = async () => {
